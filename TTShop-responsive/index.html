@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0A369D">
+<meta name="format-detection" content="telephone=no">
+<title>CompStock Manager - ระบบจัดการสินค้าอุปกรณ์คอมพิวเตอร์</title>
+
+<!-- Bootstrap 5 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Top utility bar -->
+<div class="top-bar d-none d-md-block">
+  <div class="container d-flex align-items-center justify-content-between gap-2">
+    <div class="top-bar-contact">
+      <i class="bi bi-telephone-fill"></i> <span>020 9999 3458</span>
+      <span class="top-bar-divider">|</span>
+      <span id="topBarTagline">ตัวแทนจำหน่ายอุปกรณ์คอมพิวเตอร์ครบวงจร</span>
+    </div>
+    <div class="top-bar-social">
+      <a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+      <a href="#" aria-label="Line"><i class="bi bi-chat-dots-fill"></i></a>
+    </div>
+  </div>
+</div>
+
+<!-- Navbar -->
+<nav class="navbar navbar-custom sticky-top py-2 py-md-3">
+  <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <a href="#/" class="navbar-brand-custom d-flex align-items-center gap-2 mb-0 text-decoration-none">
+      <i class="bi bi-hdd-stack-fill"></i> <span class="brand-text">CompStock Manager</span>
+    </a>
+    <div class="header-actions d-flex align-items-center gap-2 flex-wrap justify-content-end">
+
+      <!-- Minimal language switcher -->
+      <div class="dropdown lang-dropdown">
+        <button class="btn lang-toggle-btn dropdown-toggle" type="button" id="languageDropdownBtn"
+          data-bs-toggle="dropdown" aria-expanded="false" aria-label="เปลี่ยนภาษา / Change language">
+          <span id="currentLangFlag">🇹🇭</span><span id="currentLangCode">TH</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end lang-dropdown-menu" aria-labelledby="languageDropdownBtn">
+          <li><button type="button" class="dropdown-item lang-option" data-lang="th"><span>🇹🇭</span> ไทย</button></li>
+          <li><button type="button" class="dropdown-item lang-option" data-lang="en"><span>🇬🇧</span> English</button></li>
+          <li><button type="button" class="dropdown-item lang-option" data-lang="zh"><span>🇨🇳</span> 中文</button></li>
+        </ul>
+      </div>
+
+      <button id="stockButton" class="btn btn-outline-primary btn-header-action px-3" data-bs-toggle="modal" data-bs-target="#stockModal">
+        <i class="bi bi-clipboard-data"></i> <span id="stockButtonLabel" class="btn-label-text">สต๊อกสินค้า</span>
+      </button>
+      <a id="addProductButton" href="#/products/add" class="btn btn-navy btn-header-action px-3">
+        <i class="bi bi-plus-lg"></i> <span class="btn-label-text">เพิ่มสินค้าใหม่</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Category quick-nav (storefront style) -->
+  <div class="category-nav">
+    <div class="container">
+      <div class="category-nav-scroll" id="categoryQuickNav"></div>
+    </div>
+  </div>
+  <!-- เมนูย่อยของปุ่มกลุ่มหมวดหมู่ (เช่น "ส่วนประกอบคอมพิวเตอร์", "MacBook") ใช้ position:fixed แผงเดียวใช้ร่วมกัน
+       เพื่อไม่ให้ถูกครอบตัดด้วย overflow ของแถบเลื่อนหมวดหมู่ และวางตำแหน่งด้วย JS ให้พอดีจอทุกขนาด -->
+  <div class="quick-nav-submenu-panel d-none" id="quickNavSubmenuPanel"></div>
+</nav>
+
+<!-- Hero banner -->
+<div class="hero-banner-wrap">
+  <div class="container">
+    <div id="heroCarousel" class="carousel slide hero-carousel" data-bs-ride="carousel" data-bs-interval="4500">
+      <div class="carousel-indicators">
+        <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active" aria-current="true"></button>
+        <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1"></button>
+        <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2"></button>
+      </div>
+      <div class="carousel-inner">
+        <div class="carousel-item active">
+          <div class="hero-slide hero-slide-1">
+            <div class="hero-slide-text">
+              <span id="heroEyebrow1" class="hero-eyebrow">CompStock Manager</span>
+              <h2 id="heroTitle1">จัดการสต๊อกสินค้าคอมพิวเตอร์ ง่ายในที่เดียว</h2>
+              <p id="heroDesc1">เพิ่ม แก้ไข และติดตามสินค้าอุปกรณ์คอมพิวเตอร์ทั้งหมดของคุณแบบเรียลไทม์</p>
+            </div>
+            <i class="bi bi-pc-display-horizontal hero-slide-icon"></i>
+          </div>
+        </div>
+        <div class="carousel-item">
+          <div class="hero-slide hero-slide-2">
+            <div class="hero-slide-text">
+              <span id="heroEyebrow2" class="hero-eyebrow">สต๊อกเรียลไทม์</span>
+              <h2 id="heroTitle2">รู้ทันสินค้าใกล้หมดก่อนใคร</h2>
+              <p id="heroDesc2">ระบบแจ้งเตือนสินค้าใกล้หมดสต๊อก พร้อมสรุปมูลค่าสินค้าคงเหลือทั้งหมด</p>
+            </div>
+            <i class="bi bi-graph-up-arrow hero-slide-icon"></i>
+          </div>
+        </div>
+        <div class="carousel-item">
+          <div class="hero-slide hero-slide-3">
+            <div class="hero-slide-text">
+              <span id="heroEyebrow3" class="hero-eyebrow">รูปภาพหลายรูป</span>
+              <h2 id="heroTitle3">ถ่ายภาพหรืออัปโหลดได้จากมือถือ</h2>
+              <p id="heroDesc3">แนบรูปสินค้าได้หลายรูปต่อรายการ พร้อมย่อขนาดไฟล์อัตโนมัติ</p>
+            </div>
+            <i class="bi bi-camera-fill hero-slide-icon"></i>
+          </div>
+        </div>
+      </div>
+      <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+      </button>
+      <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PAGE: Product List ============ -->
+<div id="page-list" class="page-section">
+  <div class="container py-4" id="productGridSection">
+    <div class="row g-4">
+
+      <!-- Category sidebar: แสดงหมวดหมู่สินค้าแบบละเอียด พร้อมจำนวนสินค้าต่อหมวด (ซ้ายมือบนจอใหญ่ / ย่อ-ขยายได้บนมือถือ) -->
+      <aside class="col-lg-3">
+        <div class="category-sidebar" id="categorySidebar">
+          <button type="button" class="category-sidebar-mobile-toggle d-lg-none" id="categorySidebarToggle">
+            <span><i class="bi bi-ui-checks-grid"></i> <span id="categorySidebarToggleLabel">หมวดหมู่สินค้า</span></span>
+            <i class="bi bi-chevron-down"></i>
+          </button>
+          <div class="category-sidebar-head d-none d-lg-flex">
+            <i class="bi bi-ui-checks-grid"></i> <span id="categorySidebarTitle">หมวดหมู่สินค้า</span>
+          </div>
+          <div class="category-sidebar-body" id="categorySidebarBody"></div>
+        </div>
+      </aside>
+
+      <div class="col-lg-9">
+        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between mb-3 gap-3">
+          <h5 id="sectionTitle" class="section-title mb-0"><i class="bi bi-box-seam"></i> รายการสินค้าอุปกรณ์คอมพิวเตอร์</h5>
+          <div class="d-flex flex-column flex-sm-row gap-2 w-100" style="max-width: 720px;">
+            <input id="searchInput" type="search" class="form-control" placeholder="ค้นหาสินค้า... เช่น RAM, SSD, CPU">
+            <div class="category-dropdown" id="categoryFilterDropdown" style="max-width: 220px; width: 100%;">
+              <button type="button" class="form-select category-dropdown-toggle" id="categoryFilterToggle">ทุกหมวดหมู่</button>
+              <div class="category-dropdown-menu d-none" id="categoryFilterMenu"></div>
+            </div>
+            <select id="categoryFilter" class="d-none">
+              <option value="">ทุกหมวดหมู่</option>
+            </select>
+            <select id="sortSelect" class="form-select" style="max-width: 190px;">
+              <option value="newest">ใหม่ล่าสุด</option>
+              <option value="oldest">เก่าสุด</option>
+              <option value="price_asc">ราคา: น้อย → มาก</option>
+              <option value="price_desc">ราคา: มาก → น้อย</option>
+              <option value="name_asc">ชื่อ: ก → ฮ</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-3 text-muted small"><span id="productCount">0</span></div>
+
+        <!-- Loading (fallback, replaced by skeleton cards in the grid) -->
+        <div id="loadingState" class="loading-state d-none">
+          <div class="spinner-border" style="color: var(--blue);" role="status"></div>
+          <p id="loadingText" class="mt-3">กำลังโหลดข้อมูลสินค้า...</p>
+        </div>
+
+        <!-- Empty state -->
+        <div id="emptyState" class="empty-state d-none">
+          <i class="bi bi-inbox"></i>
+          <p id="emptyTitle" class="mt-3 mb-0">ยังไม่มีสินค้าในระบบ</p>
+          <p id="emptyHelp">กดปุ่ม "เพิ่มสินค้าใหม่" เพื่อเริ่มบันทึกข้อมูล</p>
+        </div>
+
+        <!-- Product grid -->
+        <div id="productGrid" class="row g-4"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============ PAGE: Add / Edit Product (full page, replaces modal) ============ -->
+<div id="page-form" class="page-section d-none">
+  <div class="container py-4 page-form-container">
+    <button type="button" id="formBackBtn" class="btn back-btn mb-3"><i class="bi bi-arrow-left"></i> <span id="formBackLabel">กลับ</span></button>
+
+    <div class="form-page-card">
+      <h4 id="formPageTitle" class="mb-4"><i class="bi bi-plus-circle"></i> <span id="formPageTitleText">เพิ่มสินค้าใหม่</span></h4>
+
+      <form id="addProductForm">
+
+        <div class="mb-3">
+          <label id="labelProductName" class="form-label fw-semibold">ชื่อสินค้า <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="productName" placeholder="เช่น RAM DDR4 16GB" required>
+        </div>
+
+        <div class="mb-3">
+          <label id="labelProductDesc" class="form-label fw-semibold">รายละเอียดสินค้า</label>
+          <textarea class="form-control" id="productDesc" rows="3" placeholder="รายละเอียด สเปค หรือหมายเหตุเพิ่มเติม"></textarea>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label id="labelProductCategory" class="form-label fw-semibold">หมวดหมู่</label>
+            <div class="category-dropdown" id="productCategoryDropdown">
+              <button type="button" class="form-select category-dropdown-toggle" id="productCategoryToggle">เลือกหมวดหมู่</button>
+              <div class="category-dropdown-menu d-none" id="productCategoryMenu"></div>
+            </div>
+            <select class="form-select d-none" id="productCategory"></select>
+          </div>
+          <div class="col-md-6">
+            <label id="labelProductQty" class="form-label fw-semibold">จำนวนคงเหลือ</label>
+            <div class="qty-stepper">
+              <button type="button" class="btn btn-outline-secondary" id="qtyMinusBtn"><i class="bi bi-dash"></i></button>
+              <input type="number" class="form-control" id="productQty" min="0" step="1" value="1">
+              <button type="button" class="btn btn-outline-secondary" id="qtyPlusBtn"><i class="bi bi-plus"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label id="labelProductPrice" class="form-label fw-semibold">ราคา (กีบ) <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <span id="priceCurrency" class="input-group-text">₭</span>
+            <input type="number" class="form-control" id="productPrice" min="0" step="0.01" placeholder="0.00" required>
+          </div>
+        </div>
+
+        <div class="mb-2">
+          <label id="labelProductImage" class="form-label fw-semibold">รูปภาพสินค้า</label>
+          <button type="button" id="addImageBtn" class="btn btn-add-image w-100">
+            <i class="bi bi-camera"></i> <span id="addImageBtnText">เพิ่มรูปภาพ</span>
+          </button>
+          <!-- Hidden native file inputs: one forces the camera, one opens the photo library -->
+          <input type="file" id="productImageCamera" accept="image/*" capture="environment" multiple class="d-none">
+          <input type="file" id="productImageGallery" accept="image/*" multiple class="d-none">
+          <div id="imageHelperText" class="form-text"><i class="bi bi-info-circle"></i> เพิ่มได้หลายรูป เลือกไฟล์หรือถ่ายจากกล้องมือถือได้</div>
+        </div>
+
+        <div id="imagePreviewWrap"></div>
+
+        <div class="form-page-actions">
+          <button type="button" id="cancelBtn" class="btn btn-outline-secondary px-4">ยกเลิก</button>
+          <button type="submit" class="btn btn-navy px-4" id="saveBtn">
+            <span id="saveBtnText"><i class="bi bi-save"></i> บันทึกสินค้า</span>
+            <span id="saveBtnSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PAGE: Product Details (full page, replaces popup) ============ -->
+<div id="page-view" class="page-section d-none">
+  <div class="container py-4">
+    <button type="button" id="viewBackBtn" class="btn back-btn mb-3"><i class="bi bi-arrow-left"></i> <span id="viewBackLabel">กลับ</span></button>
+
+    <div id="viewLoadingState" class="loading-state d-none">
+      <div class="spinner-border" style="color: var(--blue);" role="status"></div>
+      <p id="viewLoadingText" class="mt-3">กำลังโหลดข้อมูลสินค้า...</p>
+    </div>
+
+    <div id="viewNotFoundState" class="empty-state d-none">
+      <i class="bi bi-exclamation-circle"></i>
+      <p id="viewNotFoundText" class="mt-3 mb-0">ไม่พบสินค้านี้</p>
+    </div>
+
+    <div id="viewContent" class="detail-layout d-none">
+      <div class="detail-gallery">
+        <div id="viewProductCarousel" class="carousel slide detail-carousel">
+          <div class="carousel-inner" id="viewCarouselInner"></div>
+          <button class="carousel-control-prev" type="button" data-bs-target="#viewProductCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+          </button>
+          <button class="carousel-control-next" type="button" data-bs-target="#viewProductCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div id="viewThumbStrip" class="thumb-strip"></div>
+      </div>
+
+      <div class="detail-info">
+        <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+          <span id="viewProductCategory" class="category-badge"></span>
+          <span id="viewProductQtyBadge" class="qty-badge"></span>
+        </div>
+        <h2 id="viewProductTitle" class="detail-title"></h2>
+        <div id="viewProductPrice" class="detail-price"></div>
+        <p id="viewProductDesc" class="detail-desc"></p>
+        <div id="viewProductDate" class="card-date mb-4"></div>
+
+        <div class="detail-actions">
+          <button type="button" id="viewEditBtn" class="btn btn-navy btn-lg flex-fill">
+            <i class="bi bi-pencil"></i> <span id="viewEditBtnText">แก้ไข</span>
+          </button>
+          <button type="button" id="viewDeleteBtn" class="btn btn-outline-danger btn-lg flex-fill">
+            <i class="bi bi-trash"></i> <span id="viewDeleteBtnText">ลบ</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Delete Modal (kept as a small confirmation dialog, not a navigation flow) -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <i class="bi bi-trash3 text-danger" style="font-size: 2.5rem;"></i>
+        <p id="confirmDeleteText" class="mt-3 mb-4">ยืนยันการลบสินค้านี้หรือไม่?</p>
+        <div class="d-flex gap-2 justify-content-center">
+          <button type="button" id="confirmDeleteCancelBtn" class="btn btn-outline-secondary px-4">ยกเลิก</button>
+          <button type="button" id="confirmDeleteOkBtn" class="btn btn-danger px-4">ลบ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stock Summary Modal -->
+<div class="modal fade" id="stockModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 id="stockModalTitle" class="modal-title"><i class="bi bi-clipboard-data"></i> สรุปข้อมูลสต๊อกสินค้า</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-icon" style="background: var(--blue);"><i class="bi bi-box-seam-fill"></i></div>
+              <div>
+                <div id="statTypes" class="stat-value">0</div>
+                <div id="statTypesLabel" class="stat-label">ชนิดสินค้า</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-icon" style="background: #17A673;"><i class="bi bi-stack"></i></div>
+              <div>
+                <div id="statQuantity" class="stat-value">0</div>
+                <div id="statQuantityLabel" class="stat-label">จำนวนรวม (ชิ้น)</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-icon" style="background: var(--navy);"><i class="bi bi-cash-stack"></i></div>
+              <div>
+                <div id="statValue" class="stat-value">₭0</div>
+                <div id="statValueLabel" class="stat-label">มูลค่าสต๊อกรวม</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-icon" style="background: #E07A17;"><i class="bi bi-exclamation-triangle-fill"></i></div>
+              <div>
+                <div id="statLow" class="stat-value">0</div>
+                <div id="statLowLabel" class="stat-label">สินค้าใกล้หมด</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Image Source Action Sheet (choose Camera or Photo Library) -->
+<div class="modal fade" id="imageSourceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm action-sheet-dialog">
+    <div class="modal-content action-sheet">
+      <div class="modal-body p-0">
+        <button type="button" id="chooseCameraBtn" class="action-sheet-btn">
+          <i class="bi bi-camera-fill"></i> <span id="actionCameraText">ถ่ายภาพใหม่</span>
+        </button>
+        <button type="button" id="chooseGalleryBtn" class="action-sheet-btn">
+          <i class="bi bi-images"></i> <span id="actionGalleryText">เลือกจากคลังภาพ</span>
+        </button>
+        <button type="button" class="action-sheet-btn action-sheet-cancel" data-bs-dismiss="modal">
+          <span id="actionCancelText">ยกเลิก</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="appToast" class="toast align-items-center text-white border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="appToastBody">-</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="footer-brand"><i class="bi bi-hdd-stack-fill"></i> CompStock Manager</div>
+        <p id="footerDesc" class="footer-desc">ระบบจัดการสต๊อกสินค้าอุปกรณ์คอมพิวเตอร์ ใช้งานง่าย รองรับหลายภาษา</p>
+      </div>
+      <div class="col-md-4">
+        <h6 id="footerContactTitle" class="footer-heading">ติดต่อเรา</h6>
+        <p><i class="bi bi-telephone-fill"></i> 020 9999 3458</p>
+        <p><i class="bi bi-geo-alt-fill"></i> <span id="footerAddress">เวียงจันทน์, สปป.ลาว</span></p>
+      </div>
+      <div class="col-md-4">
+        <h6 id="footerFollowTitle" class="footer-heading">ติดตามเรา</h6>
+        <div class="footer-social">
+          <a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+          <a href="#" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+          <a href="#" aria-label="Line"><i class="bi bi-chat-dots-fill"></i></a>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <div id="footerBottom" class="footer-bottom text-center small">© 2026 CompStock Manager. สงวนลิขสิทธิ์.</div>
+  </div>
+</footer>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Supabase JS Client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="script.js"></script>
+
+</body>
+</html>
