@@ -1052,7 +1052,7 @@ function renderSkeletonGrid(count = 8) {
   productGrid.innerHTML = "";
   for (let i = 0; i < count; i++) {
     const col = document.createElement("div");
-    col.className = "col-6 col-sm-6 col-md-4 col-xl-3";
+    col.className = "col-4 col-sm-4 col-md-4 col-xl-3";
     col.innerHTML = `
       <div class="card product-card skeleton-card h-100">
         <div class="product-img-wrap skeleton-shimmer"></div>
@@ -1155,7 +1155,7 @@ async function renderProducts(products) {
 
   products.forEach((p, index) => {
     const col = document.createElement("div");
-    col.className = "col-6 col-sm-6 col-md-4 col-xl-3 product-card-col";
+    col.className = "col-4 col-sm-4 col-md-4 col-xl-3 product-card-col";
     col.style.animationDelay = `${Math.min(index, 12) * 0.04}s`;
 
     const thumbUrl = (Array.isArray(p.images) && p.images.length > 0) ? p.images[0] : p.image_url;
