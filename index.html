@@ -14,7 +14,9 @@
 
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="role-broker" data-page="list">
+
+<!-- ============ Everything below is visible right away — everyone can browse products without logging in ============ -->
 
 <!-- Top utility bar -->
 <div class="top-bar d-none d-md-block">
@@ -37,7 +39,9 @@
     <a href="#/" class="navbar-brand-custom d-flex align-items-center gap-2 mb-0 text-decoration-none">
       <i class="bi bi-hdd-stack-fill"></i> <span class="brand-text">CompStock Manager</span>
     </a>
-    <div class="header-actions d-flex align-items-center gap-2 flex-wrap justify-content-end">
+    <div class="header-actions d-none d-md-flex align-items-center gap-2 flex-wrap justify-content-end">
+
+      <span id="userRoleBadge" class="user-role-badge"></span>
 
       <!-- Minimal language switcher -->
       <div class="dropdown lang-dropdown">
@@ -58,7 +62,21 @@
       <a id="addProductButton" href="#/products/add" class="btn btn-navy btn-header-action px-3">
         <i class="bi bi-plus-lg"></i> <span class="btn-label-text">เพิ่มสินค้าใหม่</span>
       </a>
+      <button id="loginNavButton" type="button" class="btn btn-outline-secondary btn-header-action px-3" data-bs-toggle="modal" data-bs-target="#loginModal">
+        <i class="bi bi-box-arrow-in-right"></i> <span id="loginNavButtonLabel" class="btn-label-text">เข้าสู่ระบบ</span>
+      </button>
+      <button id="logoutButton" type="button" class="btn btn-outline-secondary btn-header-action px-3 d-none">
+        <i class="bi bi-box-arrow-right"></i> <span id="logoutButtonLabel" class="btn-label-text">ออกจากระบบ</span>
+      </button>
     </div>
+
+    <!-- Mobile: search bar at the very top of the header (products + categories) -->
+    <form class="mobile-search d-md-none" id="mobileSearchForm" role="search" autocomplete="off">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <input id="mobileSearchInput" type="search" enterkeyhint="search" inputmode="search"
+        placeholder="ค้นหาหมวดหมู่หรือสินค้า" aria-label="ค้นหาหมวดหมู่หรือสินค้า"
+        data-i18n-placeholder="mobileSearchPlaceholder" data-i18n-aria="mobileSearchPlaceholder">
+    </form>
   </div>
 
   <!-- Category quick-nav (storefront style) -->
@@ -78,7 +96,7 @@
     <div class="row g-4">
 
       <!-- Category sidebar: แสดงหมวดหมู่สินค้าแบบละเอียด พร้อมจำนวนสินค้าต่อหมวด (ซ้ายมือบนจอใหญ่ / ย่อ-ขยายได้บนมือถือ) -->
-      <aside class="col-lg-3">
+      <aside class="col-lg-3 d-none d-md-block">
         <div class="category-sidebar" id="categorySidebar">
           <button type="button" class="category-sidebar-mobile-toggle d-lg-none" id="categorySidebarToggle">
             <span><i class="bi bi-ui-checks-grid"></i> <span id="categorySidebarToggleLabel">หมวดหมู่สินค้า</span></span>
@@ -95,7 +113,7 @@
         <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between mb-3 gap-3">
           <h5 id="sectionTitle" class="section-title mb-0"><i class="bi bi-box-seam"></i> รายการสินค้าอุปกรณ์คอมพิวเตอร์</h5>
           <div class="d-flex flex-column flex-sm-row gap-2 w-100" style="max-width: 720px;">
-            <input id="searchInput" type="search" class="form-control" placeholder="ค้นหาสินค้า... เช่น RAM, SSD, CPU">
+            <input id="searchInput" type="search" class="form-control d-none d-md-block" placeholder="ค้นหาสินค้า... เช่น RAM, SSD, CPU">
             <div class="category-dropdown" id="categoryFilterDropdown" style="max-width: 220px; width: 100%;">
               <button type="button" class="form-select category-dropdown-toggle" id="categoryFilterToggle">ทุกหมวดหมู่</button>
               <div class="category-dropdown-menu d-none" id="categoryFilterMenu"></div>
@@ -132,6 +150,71 @@
       </div>
 
     </div>
+  </div>
+</div>
+
+<!-- ============ PAGE: Categories (mobile tab) ============ -->
+<div id="page-categories" class="page-section d-none">
+  <div class="container py-3">
+    <h5 class="section-title mb-0"><i class="bi bi-grid-3x3-gap-fill"></i> <span data-i18n="navCategories">หมวดหมู่ทั้งหมด</span></h5>
+    <div id="mobileCategoryGrid" class="category-grid-mobile"></div>
+    <div id="mobileCategoryEmpty" class="empty-state category-grid-empty d-none">
+      <i class="bi bi-search"></i>
+      <p id="mobileCategoryEmptyText" class="mt-3 mb-3"></p>
+      <button type="button" id="mobileCategoryEmptySearchBtn" class="btn btn-navy px-4"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PAGE: Account (mobile tab) ============ -->
+<div id="page-account" class="page-section d-none">
+  <div class="container py-3 account-page">
+
+    <section class="account-card account-hero">
+      <div class="account-avatar"><i id="accountAvatarIcon" class="bi bi-person-fill"></i></div>
+      <div class="account-hero-text">
+        <div id="accountName" class="account-name">ผู้เยี่ยมชม</div>
+        <div id="accountSub" class="account-sub"></div>
+      </div>
+    </section>
+
+    <button type="button" class="btn btn-navy w-100 mt-3 guest-only" data-bs-toggle="modal" data-bs-target="#loginModal">
+      <i class="bi bi-box-arrow-in-right"></i> <span data-i18n="loginNavButtonLabel">เข้าสู่ระบบ</span>
+    </button>
+
+    <h6 class="account-group-title admin-only" data-i18n="accountToolsTitle">จัดการร้าน</h6>
+    <section class="account-card admin-only">
+      <button type="button" class="account-row" data-bs-toggle="modal" data-bs-target="#stockModal">
+        <i class="bi bi-clipboard-data"></i><span class="account-row-label" data-i18n="stockButton">สต๊อกสินค้า</span><i class="bi bi-chevron-right account-chevron"></i>
+      </button>
+      <a class="account-row" href="#/products/add">
+        <i class="bi bi-plus-lg"></i><span class="account-row-label" data-i18n="addProductButton">เพิ่มสินค้าใหม่</span><i class="bi bi-chevron-right account-chevron"></i>
+      </a>
+    </section>
+
+    <h6 class="account-group-title" data-i18n="accountLanguageTitle">ภาษา</h6>
+    <section class="account-card account-lang" role="group" aria-label="Language">
+      <button type="button" class="lang-option account-lang-btn" data-lang="th">🇹🇭 ไทย</button>
+      <button type="button" class="lang-option account-lang-btn" data-lang="en">🇬🇧 English</button>
+      <button type="button" class="lang-option account-lang-btn" data-lang="zh">🇨🇳 中文</button>
+    </section>
+
+    <h6 class="account-group-title" data-i18n="footerContactTitle">ติดต่อเรา</h6>
+    <section class="account-card">
+      <a class="account-row" href="tel:02023075338">
+        <i class="bi bi-telephone-fill"></i><span class="account-row-label">020 23 075 338</span>
+      </a>
+      <div class="account-row">
+        <i class="bi bi-geo-alt-fill"></i><span class="account-row-label" data-i18n="footerAddress">เวียงจันทน์, สปป.ลาว</span>
+      </div>
+      <a class="account-row" href="https://www.facebook.com/share/19RS3duHXZ/?mibextid=wwXIfr" target="_blank" rel="noopener">
+        <i class="bi bi-facebook"></i><span class="account-row-label">Facebook</span><i class="bi bi-box-arrow-up-right account-chevron"></i>
+      </a>
+    </section>
+
+    <button type="button" id="accountLogoutBtn" class="btn btn-outline-danger w-100 mt-4 admin-only">
+      <i class="bi bi-box-arrow-right"></i> <span data-i18n="logoutButtonLabel">ออกจากระบบ</span>
+    </button>
   </div>
 </div>
 
@@ -345,6 +428,51 @@
     </div>
   </div>
 </div>
+
+<!-- Admin Login Modal (guests browse freely; this is only for switching into admin mode) -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 id="loginModalTitle" class="modal-title"><i class="bi bi-shield-lock"></i> เข้าสู่ระบบผู้ดูแลระบบ</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="loginForm" autocomplete="on">
+          <div class="mb-3">
+            <label id="loginEmailLabel" class="form-label fw-semibold">อีเมล</label>
+            <input type="email" class="form-control" id="loginEmail" required autocomplete="username" inputmode="email">
+          </div>
+          <div class="mb-3">
+            <label id="loginPasswordLabel" class="form-label fw-semibold">รหัสผ่าน</label>
+            <input type="password" class="form-control" id="loginPassword" required autocomplete="current-password">
+          </div>
+          <div id="loginErrorMsg" class="text-danger small mb-3 d-none"></div>
+          <button type="submit" class="btn btn-navy w-100" id="loginSubmitBtn">
+            <span id="loginSubmitText">เข้าสู่ระบบ</span>
+            <span id="loginSubmitSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom navigation (mobile only): Home / Categories / Account -->
+<nav class="bottom-nav d-md-none" id="bottomNav" aria-label="เมนูหลัก" data-i18n-aria="bottomNavAria">
+  <a href="#/" class="bottom-nav-item active" data-tab="home" data-icon="house-door" aria-current="page">
+    <span class="bottom-nav-icon"><i class="bi bi-house-door-fill"></i></span>
+    <span class="bottom-nav-label" data-i18n="navHome">หน้าแรก</span>
+  </a>
+  <a href="#/categories" class="bottom-nav-item" data-tab="categories" data-icon="grid">
+    <span class="bottom-nav-icon"><i class="bi bi-grid"></i></span>
+    <span class="bottom-nav-label" data-i18n="navCategories">หมวดหมู่ทั้งหมด</span>
+  </a>
+  <a href="#/account" class="bottom-nav-item" data-tab="account" data-icon="person">
+    <span class="bottom-nav-icon"><i class="bi bi-person"></i></span>
+    <span class="bottom-nav-label" data-i18n="navAccount">บัญชี</span>
+  </a>
+</nav>
 
 <!-- Toast container -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
