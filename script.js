@@ -11,6 +11,16 @@ const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const BUCKET_NAME = "product-images";
 const TABLE_NAME = "products";
+// View ที่ไม่มีคอลัมน์ราคา/จำนวนสต๊อก สำหรับผู้ใช้สิทธิ์ "นายหน้า" (ต้องสร้างใน Supabase ตามคำแนะนำที่แนบมา)
+const BROKER_VIEW_NAME = "products_broker_view";
+
+// ------------------- ระบบล็อกอิน & สิทธิ์ผู้ใช้งาน (admin / broker) -------------------
+let currentSession = null;
+let currentUserRole = null; // "admin" | "broker" | null (ยังไม่ล็อกอิน)
+
+function isAdminRole() {
+  return currentUserRole === "admin";
+}
 
 // ------------------- หมวดหมู่ MacBook แยกตามปี (2015 - ปีล่าสุด) -------------------
 const MACBOOK_YEAR_START = 2015;
@@ -157,6 +167,17 @@ const translations = {
     footerDesc: "ระบบจัดการสต๊อกสินค้าอุปกรณ์คอมพิวเตอร์ ใช้งานง่าย รองรับหลายภาษา",
     footerContactTitle: "ติดต่อเรา", footerFollowTitle: "ติดตามเรา", footerAddress: "เวียงจันทน์, สปป.ลาว",
     footerBottom: "© 2026 CompStock Manager. สงวนลิขสิทธิ์.",
+    loginModalTitle: "เข้าสู่ระบบผู้ดูแลระบบ",
+    loginNavButtonLabel: "เข้าสู่ระบบ",
+    loginEmailLabel: "อีเมล",
+    loginPasswordLabel: "รหัสผ่าน",
+    loginSubmitText: "เข้าสู่ระบบ",
+    loginError: "เข้าสู่ระบบไม่สำเร็จ: ",
+    loginNotAdmin: "บัญชีนี้ไม่มีสิทธิ์ผู้ดูแลระบบ",
+    logoutButtonLabel: "ออกจากระบบ",
+    roleAdminLabel: "ผู้ดูแลระบบ",
+    roleBrokerLabel: "นายหน้า",
+    permissionDenied: "คุณไม่มีสิทธิ์ทำรายการนี้",
   },
   en: {
     pageTitle: "CompStock Manager - Product Inventory",
@@ -220,6 +241,17 @@ const translations = {
     footerDesc: "An easy-to-use, multilingual computer parts inventory system.",
     footerContactTitle: "Contact Us", footerFollowTitle: "Follow Us", footerAddress: "Vientiane, Laos",
     footerBottom: "© 2026 CompStock Manager. All rights reserved.",
+    loginModalTitle: "Admin Sign In",
+    loginNavButtonLabel: "Sign In",
+    loginEmailLabel: "Email",
+    loginPasswordLabel: "Password",
+    loginSubmitText: "Sign In",
+    loginError: "Sign in failed: ",
+    loginNotAdmin: "This account doesn't have admin access",
+    logoutButtonLabel: "Sign Out",
+    roleAdminLabel: "Admin",
+    roleBrokerLabel: "Broker",
+    permissionDenied: "You don't have permission to do this",
   },
   zh: {
     pageTitle: "CompStock Manager - 产品库存",
@@ -283,6 +315,17 @@ const translations = {
     footerDesc: "简单易用、支持多语言的电脑配件库存管理系统。",
     footerContactTitle: "联系我们", footerFollowTitle: "关注我们", footerAddress: "老挝万象",
     footerBottom: "© 2026 CompStock Manager. 保留所有权利。",
+    loginModalTitle: "管理员登录",
+    loginNavButtonLabel: "登录",
+    loginEmailLabel: "邮箱",
+    loginPasswordLabel: "密码",
+    loginSubmitText: "登录",
+    loginError: "登录失败：",
+    loginNotAdmin: "该账户没有管理员权限",
+    logoutButtonLabel: "退出登录",
+    roleAdminLabel: "管理员",
+    roleBrokerLabel: "经纪人",
+    permissionDenied: "您没有权限执行此操作",
   },
 };
 
@@ -323,6 +366,19 @@ const imagePreviewWrap = document.getElementById("imagePreviewWrap");
 const saveBtn = document.getElementById("saveBtn");
 const saveBtnText = document.getElementById("saveBtnText");
 const saveBtnSpinner = document.getElementById("saveBtnSpinner");
+// ------------------- Login / Logout elements -------------------
+const loginForm = document.getElementById("loginForm");
+const loginEmailInput = document.getElementById("loginEmail");
+const loginPasswordInput = document.getElementById("loginPassword");
+const loginErrorMsg = document.getElementById("loginErrorMsg");
+const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+const loginSubmitText = document.getElementById("loginSubmitText");
+const loginSubmitSpinner = document.getElementById("loginSubmitSpinner");
+const loginModalEl = document.getElementById("loginModal");
+const loginNavButton = document.getElementById("loginNavButton");
+const logoutButton = document.getElementById("logoutButton");
+const userRoleBadge = document.getElementById("userRoleBadge");
+
 // ------------------- Full-page routing elements -------------------
 const pageListEl = document.getElementById("page-list");
 const pageFormEl = document.getElementById("page-form");
@@ -589,8 +645,8 @@ function renderCategoryQuickNav() {
         <i class="bi ${CATEGORY_ICONS[k] || "bi-tag"}"></i><span>${labels[k]}</span>
       </button>`;
     } else {
-      const isActiveGroup = item.keys.includes(currentCategoryFilter);
-      const pillLabel = isActiveGroup ? (labels[currentCategoryFilter] || groupLabels[item.labelKey]) : groupLabels[item.labelKey];
+      const isActiveGroup = item.keys.includes(currentCategoryFilter) || currentCategoryFilter === `group:${item.id}`;
+      const pillLabel = item.keys.includes(currentCategoryFilter) ? (labels[currentCategoryFilter] || groupLabels[item.labelKey]) : groupLabels[item.labelKey];
       html += `<button type="button" class="quick-nav-pill quick-nav-pill-group${isActiveGroup ? " active" : ""}" data-group-id="${item.id}">
         <i class="bi ${item.icon}"></i><span>${pillLabel}</span><i class="bi bi-chevron-down quick-nav-caret"></i>
       </button>`;
@@ -616,9 +672,26 @@ function renderCategoryQuickNav() {
       e.stopPropagation();
       const groupId = btn.getAttribute("data-group-id");
       const item = QUICK_NAV_ITEMS.find((it) => it.type === "group" && it.id === groupId);
+      if (!item) return;
+
+      const groupValue = `group:${groupId}`;
+      if (currentCategoryFilter !== groupValue) {
+        // กดครั้งแรก (หรือกดตอนที่เลือกหมวดอื่นอยู่): โชว์สินค้าทุกชิ้นในกลุ่มนี้รวมกันก่อน (เช่น MacBook ทุกปี)
+        currentCategoryFilter = groupValue;
+        categoryFilterEl.value = "";
+        categoryFilterDropdownCtl.syncToggleText();
+        applyProductFilter();
+        // อัปเดตสถานะ active ของปุ่มโดยไม่ re-render ทั้งแถบ เพื่อไม่ให้ btn ที่อ้างอิงอยู่หลุดออกจาก DOM
+        // (ถ้า re-render ทั้งแถบตรงนี้ ปุ่มที่ใช้เป็นจุดอ้างอิงเปิดเมนูย่อยด้านล่างจะใช้ไม่ได้)
+        wrap.querySelectorAll(".quick-nav-pill").forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById("productGridSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      // จากนั้นค่อยเปิดเมนูย่อยให้เลือกปีที่ต้องการต่อ (ยังคงเลือกกรองเฉพาะปีได้เหมือนเดิม)
       if (openQuickNavGroupId === groupId) {
         closeQuickNavSubmenu();
-      } else if (item) {
+      } else {
         openQuickNavSubmenu(item, btn);
       }
     });
@@ -652,7 +725,7 @@ function renderCategorySidebar() {
       </button>`;
     } else {
       const isOpen = sidebarOpenGroupIds.has(item.id);
-      const isActiveGroup = item.keys.includes(currentCategoryFilter);
+      const isActiveGroup = item.keys.includes(currentCategoryFilter) || currentCategoryFilter === `group:${item.id}`;
       html += `
         <div class="category-sidebar-group">
           <button type="button" class="category-sidebar-item category-sidebar-group-toggle${isActiveGroup ? " active" : ""}" data-sidebar-group="${item.id}">
@@ -687,9 +760,22 @@ function renderCategorySidebar() {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const groupId = btn.getAttribute("data-sidebar-group");
+      const groupValue = `group:${groupId}`;
+      const groupItem = QUICK_NAV_ITEMS.find((it) => it.type === "group" && it.id === groupId);
+      let filterChanged = false;
+      if (groupItem && currentCategoryFilter !== groupValue) {
+        // กดครั้งแรก: โชว์สินค้าทุกชิ้นในกลุ่มนี้รวมกันก่อน (เช่น MacBook ทุกปี) แล้วค่อยเลือกปีย่อยได้จากรายการที่ขยายออกมา
+        currentCategoryFilter = groupValue;
+        filterChanged = true;
+      }
       if (sidebarOpenGroupIds.has(groupId)) sidebarOpenGroupIds.delete(groupId);
       else sidebarOpenGroupIds.add(groupId);
-      renderCategorySidebar();
+      if (filterChanged) {
+        applyProductFilter(); // เรียก renderCategorySidebar() ต่อให้เองอยู่แล้วด้านในฟังก์ชันนี้
+        renderCategoryQuickNav();
+      } else {
+        renderCategorySidebar();
+      }
     });
   });
 }
@@ -753,6 +839,243 @@ function setProductCount(count) {
   productCount.textContent = translations[currentLang].countLabel(count);
 }
 
+/* ============================================================
+   ส่วนที่ 3.5: Mobile UI — Bottom Navigation (หน้าแรก / หมวดหมู่ทั้งหมด / บัญชี)
+   - สลับแท็บด้วย hash route เดิม (#/  #/categories  #/account) ไม่โหลดหน้าใหม่ และปุ่ม Back ของเบราว์เซอร์ใช้งานได้
+   - แสดงเฉพาะจอ < 768px (ตัว nav ใช้ class d-md-none; บนจอใหญ่ route ใหม่จะเด้งกลับหน้าแรก)
+   - รายการหมวดหมู่ในกริดสร้างจาก QUICK_NAV_ITEMS / CATEGORY_LABELS / CATEGORY_ICONS ชุดเดียวกับที่ระบบใช้อยู่
+     ถ้าเพิ่มหมวดใหม่ในระบบ กริดนี้จะอัปเดตตามอัตโนมัติ
+   ============================================================ */
+Object.assign(translations.th, {
+  navHome: "หน้าแรก", navCategories: "หมวดหมู่ทั้งหมด", navAccount: "บัญชี",
+  bottomNavAria: "เมนูหลัก",
+  mobileSearchPlaceholder: "ค้นหาหมวดหมู่หรือสินค้า",
+  categoryGridAll: "สินค้าทั้งหมด",
+  categoryGridNoMatch: (q) => `ไม่พบหมวดหมู่ "${q}"`,
+  categoryGridSearchProducts: (q) => `ค้นหา "${q}" ในรายการสินค้า`,
+  accountGuestTitle: "ผู้เยี่ยมชม",
+  accountGuestHelp: "ดูสินค้าได้ทันที เข้าสู่ระบบเมื่อต้องการจัดการร้าน",
+  accountToolsTitle: "จัดการร้าน",
+  accountLanguageTitle: "ภาษา",
+});
+Object.assign(translations.en, {
+  navHome: "Home", navCategories: "Categories", navAccount: "Account",
+  bottomNavAria: "Main navigation",
+  mobileSearchPlaceholder: "Search categories or products",
+  categoryGridAll: "All products",
+  categoryGridNoMatch: (q) => `No category matches "${q}"`,
+  categoryGridSearchProducts: (q) => `Search products for "${q}"`,
+  accountGuestTitle: "Guest",
+  accountGuestHelp: "Browse products freely. Sign in to manage the shop.",
+  accountToolsTitle: "Shop tools",
+  accountLanguageTitle: "Language",
+});
+Object.assign(translations.zh, {
+  navHome: "首页", navCategories: "全部分类", navAccount: "账户",
+  bottomNavAria: "主导航",
+  mobileSearchPlaceholder: "搜索分类或商品",
+  categoryGridAll: "全部商品",
+  categoryGridNoMatch: (q) => `没有找到分类“${q}”`,
+  categoryGridSearchProducts: (q) => `在商品中搜索“${q}”`,
+  accountGuestTitle: "访客",
+  accountGuestHelp: "可直接浏览商品，登录后可管理店铺。",
+  accountToolsTitle: "店铺管理",
+  accountLanguageTitle: "语言",
+});
+
+const MOBILE_MQ = window.matchMedia("(max-width: 767.98px)");
+const bottomNavEl = document.getElementById("bottomNav");
+const mobileSearchForm = document.getElementById("mobileSearchForm");
+const mobileSearchInput = document.getElementById("mobileSearchInput");
+const pageCategoriesEl = document.getElementById("page-categories");
+const pageAccountEl = document.getElementById("page-account");
+const mobileCategoryGrid = document.getElementById("mobileCategoryGrid");
+const mobileCategoryEmpty = document.getElementById("mobileCategoryEmpty");
+const mobileCategoryEmptyText = document.getElementById("mobileCategoryEmptyText");
+const mobileCategoryEmptySearchBtn = document.getElementById("mobileCategoryEmptySearchBtn");
+let mobileCategoryQuery = ""; // คำค้นที่พิมพ์ในหน้า "หมวดหมู่ทั้งหมด" (แยกจากคำค้นสินค้า และล้างทุกครั้งที่เปิดแท็บนี้)
+
+function uiText(key) {
+  const dict = translations[currentLang] || translations.th;
+  return dict[key] !== undefined ? dict[key] : translations.th[key];
+}
+
+// ---- แถบเมนูล่าง: ไฮไลต์แท็บที่ใช้งานอยู่ ----
+// หน้ารายละเอียด/เพิ่ม/แก้ไขสินค้า ถือว่าอยู่ภายใต้แท็บ "หน้าแรก"
+const NAV_TAB_FOR_PAGE = { list: "home", view: "home", add: "home", edit: "home", categories: "categories", account: "account" };
+
+function updateBottomNav(pageName) {
+  if (!bottomNavEl) return;
+  const activeTab = NAV_TAB_FOR_PAGE[pageName] || "home";
+  bottomNavEl.querySelectorAll(".bottom-nav-item").forEach((link) => {
+    const on = link.dataset.tab === activeTab;
+    link.classList.toggle("active", on);
+    if (on) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+    const icon = link.querySelector(".bottom-nav-icon i");
+    if (icon) icon.className = `bi bi-${link.dataset.icon}${on ? "-fill" : ""}`; // แท็บที่ใช้งาน = ไอคอนแบบทึบ
+  });
+}
+
+// แตะ "หน้าแรก" ซ้ำตอนอยู่หน้ารายการสินค้าอยู่แล้ว = เลื่อนกลับบนสุด (พฤติกรรมมาตรฐานของแอป)
+bottomNavEl?.addEventListener("click", (e) => {
+  const link = e.target.closest(".bottom-nav-item");
+  if (link && link.dataset.tab === "home" && parseRoute().name === "list") {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+});
+
+// ---- กรองสินค้าตามหมวด (ใช้ตรรกะเดียวกับปุ่มหมวดหมู่ด่วนเดิม) ----
+function applyCategoryFilterValue(value) {
+  currentCategoryFilter = value;
+  categoryFilterEl.value = value.startsWith("group:") ? "" : value;
+  categoryFilterDropdownCtl.syncToggleText();
+  applyProductFilter();
+  renderCategoryQuickNav();
+}
+
+// ---- กริดหมวดหมู่ 4 คอลัมน์ ----
+// กลุ่ม "ส่วนประกอบคอมพิวเตอร์" กางเป็นหมวดย่อยทีละช่อง (RAM, SSD, CPU ...) ส่วน MacBook รวมเป็นช่องเดียว
+// (มี 12 รุ่นปี ถ้ากางหมดจะล้นกริด — กดแล้วเลือกปีต่อได้จากแถบหมวดหมู่ด่วนในหน้าแรก)
+const CATEGORY_GRID_COLLAPSED_GROUPS = ["macbook"];
+
+function buildCategoryGridItems() {
+  const labels = CATEGORY_LABELS[currentLang] || CATEGORY_LABELS.th;
+  const groupLabels = QUICK_NAV_GROUP_LABELS[currentLang] || QUICK_NAV_GROUP_LABELS.th;
+  const items = [{ value: "", icon: "bi-grid-3x3-gap-fill", label: uiText("categoryGridAll"), keys: [] }];
+  QUICK_NAV_ITEMS.forEach((item) => {
+    if (item.type === "single") {
+      items.push({ value: item.key, icon: CATEGORY_ICONS[item.key] || "bi-tag", label: labels[item.key], keys: [item.key] });
+    } else if (CATEGORY_GRID_COLLAPSED_GROUPS.includes(item.id)) {
+      items.push({ value: `group:${item.id}`, icon: item.icon, label: groupLabels[item.labelKey], keys: item.keys });
+    } else {
+      item.keys.forEach((k) => items.push({ value: k, icon: CATEGORY_ICONS[k] || "bi-tag", label: labels[k], keys: [k] }));
+    }
+  });
+  return items;
+}
+
+function categoryMatchesQuery(item, q) {
+  if (item.label.toLowerCase().includes(q)) return true;
+  // ค้นได้ทั้งชื่อภาษาอื่น และ key (เช่น พิมพ์ "gpu" หรือ "graphics" ก็เจอ "การ์ดจอ")
+  return item.keys.some((k) =>
+    k.toLowerCase().includes(q) ||
+    Object.values(CATEGORY_LABELS).some((l) => (l[k] || "").toLowerCase().includes(q))
+  );
+}
+
+function renderMobileCategoryGrid() {
+  if (!mobileCategoryGrid) return;
+  const q = mobileCategoryQuery.trim().toLowerCase();
+  const items = buildCategoryGridItems().filter((it) => (q ? it.value !== "" && categoryMatchesQuery(it, q) : true));
+
+  mobileCategoryGrid.innerHTML = items.map((it) => {
+    const active = it.value === "" ? !currentCategoryFilter : (currentCategoryFilter === it.value || it.keys.includes(currentCategoryFilter));
+    return `<button type="button" class="cat-tile${active ? " active" : ""}" data-value="${it.value}" aria-pressed="${active}">
+      <span class="cat-tile-icon"><i class="bi ${it.icon}" aria-hidden="true"></i></span>
+      <span class="cat-tile-label">${escapeHtml(it.label)}</span>
+    </button>`;
+  }).join("");
+
+  const noMatch = items.length === 0;
+  mobileCategoryEmpty.classList.toggle("d-none", !noMatch);
+  if (noMatch) {
+    mobileCategoryEmptyText.textContent = uiText("categoryGridNoMatch")(mobileCategoryQuery.trim());
+    mobileCategoryEmptySearchBtn.textContent = uiText("categoryGridSearchProducts")(mobileCategoryQuery.trim());
+  }
+}
+
+mobileCategoryGrid?.addEventListener("click", (e) => {
+  const tile = e.target.closest(".cat-tile");
+  if (!tile) return;
+  // เลือกหมวดจากกริด = ดูสินค้าของหมวดนั้นทันทีที่หน้าแรก (ล้างคำค้นเก่าเพื่อไม่ให้ผลลัพธ์ว่างโดยไม่รู้ตัว)
+  searchInput.value = "";
+  mobileCategoryQuery = "";
+  applyCategoryFilterValue(tile.dataset.value);
+  navigateTo("/");
+});
+
+// ---- ช่องค้นหาด้านบน (Header) ----
+// หน้าแรก: กรองสินค้าทันทีที่พิมพ์ | หน้าหมวดหมู่: กรองรายการหมวดทันที | หน้าอื่น: รอกด Enter แล้วค้นสินค้าทั้งหมด
+function searchProductsGlobally(q) {
+  searchInput.value = q;
+  mobileCategoryQuery = "";
+  applyCategoryFilterValue(""); // ค้นข้ามทุกหมวด
+  navigateTo("/");
+}
+
+function syncMobileSearchWithRoute(pageName) {
+  if (!mobileSearchInput) return;
+  mobileSearchInput.value = pageName === "categories" ? mobileCategoryQuery : searchInput.value;
+}
+
+mobileSearchInput?.addEventListener("input", () => {
+  const page = parseRoute().name;
+  if (page === "categories") {
+    mobileCategoryQuery = mobileSearchInput.value;
+    renderMobileCategoryGrid();
+  } else if (page === "list") {
+    searchInput.value = mobileSearchInput.value;
+    applyProductFilter();
+  }
+});
+
+mobileSearchForm?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = mobileSearchInput.value.trim();
+  if (q && parseRoute().name !== "list") searchProductsGlobally(q);
+  mobileSearchInput.blur(); // ปิดคีย์บอร์ด
+});
+
+mobileCategoryEmptySearchBtn?.addEventListener("click", () => searchProductsGlobally(mobileCategoryQuery.trim()));
+
+// ---- หน้าบัญชี ----
+function refreshAccountPage() {
+  const nameEl = document.getElementById("accountName");
+  const subEl = document.getElementById("accountSub");
+  const avatarEl = document.getElementById("accountAvatarIcon");
+  if (!nameEl || !subEl || !avatarEl) return;
+  const admin = isAdminRole();
+  nameEl.textContent = admin ? uiText("roleAdminLabel") : uiText("accountGuestTitle");
+  subEl.textContent = admin ? (currentSession?.user?.email || "") : uiText("accountGuestHelp");
+  avatarEl.className = admin ? "bi bi-shield-check" : "bi bi-person-fill";
+}
+
+document.getElementById("accountLogoutBtn")?.addEventListener("click", () => logoutButton.click());
+
+// ---- แปลข้อความของ UI มือถือ (ใช้ data-i18n / data-i18n-placeholder / data-i18n-aria ใน HTML) ----
+function applyMobileUiTranslations() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const v = uiText(el.dataset.i18n);
+    if (typeof v === "string") el.textContent = v;
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    const v = uiText(el.dataset.i18nPlaceholder);
+    if (typeof v === "string") el.placeholder = v;
+  });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+    const v = uiText(el.dataset.i18nAria);
+    if (typeof v === "string") el.setAttribute("aria-label", v);
+  });
+  refreshAccountPage();
+  renderMobileCategoryGrid();
+}
+
+// ---- เรียกจาก showOnlyPage() ทุกครั้งที่เปลี่ยนหน้า ----
+function onMobilePageShown(pageName) {
+  document.body.dataset.page = pageName; // CSS ใช้ซ่อน/แสดงองค์ประกอบตามหน้า
+  updateBottomNav(pageName);
+  syncMobileSearchWithRoute(pageName);
+}
+
+// ถ้าหมุนจอ/ย่อขยายหน้าต่างจนพ้นโหมดมือถือขณะอยู่แท็บหมวดหมู่/บัญชี ให้กลับหน้าแรก (จอใหญ่ไม่มีแท็บนี้)
+MOBILE_MQ.addEventListener("change", () => {
+  const page = parseRoute().name;
+  if (!MOBILE_MQ.matches && (page === "categories" || page === "account")) navigateTo("/");
+  else syncMobileSearchWithRoute(page);
+});
+
 function setLanguage(lang) {
   if (!translations[lang]) lang = "th";
   currentLang = lang;
@@ -808,6 +1131,18 @@ function setLanguage(lang) {
   if (footerFollowTitle) footerFollowTitle.textContent = translations[lang].footerFollowTitle;
   if (footerAddress) footerAddress.textContent = translations[lang].footerAddress;
   if (footerBottom) footerBottom.textContent = translations[lang].footerBottom;
+  const loginModalTitleEl = document.getElementById("loginModalTitle");
+  const loginEmailLabelEl = document.getElementById("loginEmailLabel");
+  const loginPasswordLabelEl = document.getElementById("loginPasswordLabel");
+  if (loginModalTitleEl) loginModalTitleEl.innerHTML = `<i class="bi bi-shield-lock"></i> ${translations[lang].loginModalTitle}`;
+  if (loginEmailLabelEl) loginEmailLabelEl.textContent = translations[lang].loginEmailLabel;
+  if (loginPasswordLabelEl) loginPasswordLabelEl.textContent = translations[lang].loginPasswordLabel;
+  if (loginSubmitText) loginSubmitText.textContent = translations[lang].loginSubmitText;
+  const loginNavButtonLabelEl = document.getElementById("loginNavButtonLabel");
+  if (loginNavButtonLabelEl) loginNavButtonLabelEl.textContent = translations[lang].loginNavButtonLabel;
+  const logoutButtonLabelEl = document.getElementById("logoutButtonLabel");
+  if (logoutButtonLabelEl) logoutButtonLabelEl.textContent = translations[lang].logoutButtonLabel;
+  updateRoleBadge();
   const sortNewestOpt = document.querySelector('#sortSelect option[value="newest"]');
   const sortOldestOpt = document.querySelector('#sortSelect option[value="oldest"]');
   const sortPriceAscOpt = document.querySelector('#sortSelect option[value="price_asc"]');
@@ -838,6 +1173,7 @@ function setLanguage(lang) {
   langOptionButtons.forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.lang === lang);
   });
+  applyMobileUiTranslations();
   localStorage.setItem("appLanguage", lang);
   applyProductFilter();
 }
@@ -1074,8 +1410,11 @@ async function fetchProducts() {
   renderSkeletonGrid();
   emptyState.classList.add("d-none");
 
+  // นายหน้า (broker) จะอ่านผ่าน view ที่ไม่มีคอลัมน์ราคา/สต๊อกเลย (ตั้งค่าไว้ที่ฝั่ง Supabase)
+  const sourceTable = isAdminRole() ? TABLE_NAME : BROKER_VIEW_NAME;
+
   const { data, error } = await supabaseClient
-    .from(TABLE_NAME)
+    .from(sourceTable)
     .select("*")
     .order("created_at", { ascending: false });
 
@@ -1110,7 +1449,15 @@ function applyProductFilter() {
     : [...allProducts];
 
   if (currentCategoryFilter) {
-    filtered = filtered.filter((item) => normalizeCategoryKey(item.category || "") === currentCategoryFilter);
+    if (currentCategoryFilter.startsWith("group:")) {
+      // ตัวกรองแบบ "ทั้งกลุ่ม" เช่น กด "MacBook" แล้วโชว์ทุกปีรวมกัน ก่อนจะค่อยเลือกปีย่อยทีหลัง
+      const groupId = currentCategoryFilter.slice(6);
+      const groupItem = QUICK_NAV_ITEMS.find((it) => it.type === "group" && it.id === groupId);
+      const groupKeys = groupItem ? groupItem.keys : [];
+      filtered = filtered.filter((item) => groupKeys.includes(normalizeCategoryKey(item.category || "")));
+    } else {
+      filtered = filtered.filter((item) => normalizeCategoryKey(item.category || "") === currentCategoryFilter);
+    }
   }
 
   filtered.sort((a, b) => {
@@ -1220,6 +1567,8 @@ function navigateTo(path) {
 function parseRoute() {
   const hash = (location.hash || "").replace(/^#/, "");
   if (!hash || hash === "/") return { name: "list" };
+  if (/^\/categories\/?$/.test(hash)) return { name: "categories" };
+  if (/^\/account\/?$/.test(hash)) return { name: "account" };
 
   let m = hash.match(/^\/products\/add\/?$/);
   if (m) return { name: "add" };
@@ -1237,6 +1586,9 @@ function showOnlyPage(name) {
   pageListEl.classList.toggle("d-none", name !== "list");
   pageFormEl.classList.toggle("d-none", name !== "add" && name !== "edit");
   pageViewEl.classList.toggle("d-none", name !== "view");
+  pageCategoriesEl.classList.toggle("d-none", name !== "categories");
+  pageAccountEl.classList.toggle("d-none", name !== "account");
+  onMobilePageShown(name);
   window.scrollTo(0, 0);
 }
 
@@ -1248,13 +1600,29 @@ async function router() {
     return;
   }
 
+  // แท็บ "หมวดหมู่ทั้งหมด" / "บัญชี" มีเฉพาะมือถือ — จอใหญ่เด้งกลับหน้าแรก
+  if (route.name === "categories" || route.name === "account") {
+    if (!MOBILE_MQ.matches) { navigateTo("/"); return; }
+    if (route.name === "categories") {
+      mobileCategoryQuery = ""; // เปิดแท็บนี้ทีไรให้เห็นหมวดทั้งหมดทันที
+      showOnlyPage("categories");
+      renderMobileCategoryGrid();
+    } else {
+      showOnlyPage("account");
+      refreshAccountPage();
+    }
+    return;
+  }
+
   if (route.name === "add") {
+    if (!isAdminRole()) { navigateTo("/"); return; }
     resetProductForm();
     showOnlyPage("add");
     return;
   }
 
   if (route.name === "edit") {
+    if (!isAdminRole()) { navigateTo("/"); return; }
     showOnlyPage("edit");
     const product = await resolveProductById(route.id);
     if (product) {
@@ -1281,8 +1649,9 @@ async function resolveProductById(id) {
   if (cached) return cached;
 
   const matchValue = /^\d+$/.test(id) ? Number(id) : id;
+  const sourceTable = isAdminRole() ? TABLE_NAME : BROKER_VIEW_NAME;
   const { data, error } = await supabaseClient
-    .from(TABLE_NAME)
+    .from(sourceTable)
     .select("*")
     .eq("id", matchValue)
     .single();
@@ -1366,12 +1735,12 @@ document.getElementById("viewProductCarousel")?.addEventListener("slide.bs.carou
 });
 
 viewEditBtn.addEventListener("click", () => {
-  if (!currentViewProduct) return;
+  if (!currentViewProduct || !isAdminRole()) return;
   navigateTo(`/products/edit/${encodeURIComponent(currentViewProduct.id)}`);
 });
 
 viewDeleteBtn.addEventListener("click", () => {
-  if (!currentViewProduct) return;
+  if (!currentViewProduct || !isAdminRole()) return;
   requestDelete(currentViewProduct);
 });
 
@@ -1418,6 +1787,11 @@ document.getElementById("cancelBtn").addEventListener("click", () => {
 // ------------------- Insert / Edit สินค้า -------------------
 addProductForm.addEventListener("submit", async (e) => {
   e.preventDefault();
+
+  if (!isAdminRole()) {
+    showToast(translations[currentLang].permissionDenied, "danger");
+    return;
+  }
 
   const name = document.getElementById("productName").value.trim();
   const description = document.getElementById("productDesc").value.trim();
@@ -1520,6 +1894,10 @@ function setSaving(isSaving) {
 
 // ------------------- Delete สินค้า -------------------
 function requestDelete(product) {
+  if (!isAdminRole()) {
+    showToast(translations[currentLang].permissionDenied, "danger");
+    return;
+  }
   pendingDeleteProduct = product;
   document.getElementById("confirmDeleteText").textContent = translations[currentLang].confirmDelete;
   document.getElementById("confirmDeleteCancelBtn").textContent = translations[currentLang].cancelButton;
@@ -1552,6 +1930,109 @@ async function handleDelete(product) {
   }
 }
 
+// ------------------- ระบบล็อกอิน & สิทธิ์ผู้ใช้งาน -------------------
+// ทุกคนเห็นสินค้าได้ทันทีโดยไม่ต้องล็อกอิน (โหมด "นายหน้า/ผู้เยี่ยมชม": ไม่เห็นราคา/สต๊อก แก้ไข-เพิ่มสินค้าไม่ได้)
+// ปุ่ม "เข้าสู่ระบบ" มีไว้สำหรับเจ้าของร้าน/แอดมินเท่านั้น เพื่อสลับเข้าสู่โหมดแอดมินที่ทำได้ทุกอย่าง
+function updateRoleBadge() {
+  if (!userRoleBadge) return;
+  userRoleBadge.textContent = isAdminRole() ? translations[currentLang].roleAdminLabel : "";
+}
+
+// ควบคุมการแสดงผล UI ตามสิทธิ์ (การซ่อนราคา/ปุ่มต่างๆ ทำผ่าน CSS class "role-broker" บน <body> ดู styles.css)
+function applyRoleUI() {
+  const isAdmin = isAdminRole();
+  document.body.classList.toggle("role-admin", isAdmin);
+  document.body.classList.toggle("role-broker", !isAdmin);
+  loginNavButton.classList.toggle("d-none", isAdmin);
+  logoutButton.classList.toggle("d-none", !isAdmin);
+  updateRoleBadge();
+  refreshAccountPage();
+}
+
+function getRoleFromSession(session) {
+  const appMeta = session?.user?.app_metadata || {};
+  return appMeta.role === "admin" ? "admin" : "broker";
+}
+
+// ตรวจสอบ session ที่ล็อกอินเข้ามาว่ามีสิทธิ์ "admin" จริงหรือไม่ ก่อนจะปลดล็อกโหมดแอดมิน
+// (ถ้าไม่ใช่แอดมิน จะไม่อนุญาตให้เข้าสู่ระบบเลย เพราะระบบนี้ไม่มีบัญชี "นายหน้า" แยกต่างหากอีกต่อไป
+//  คนทั่วไป/นายหน้าดูสินค้าได้อยู่แล้วโดยไม่ต้องล็อกอิน)
+async function tryEnterAdminMode(session, { silent = false } = {}) {
+  const role = getRoleFromSession(session);
+  if (role !== "admin") {
+    await supabaseClient.auth.signOut();
+    if (!silent) {
+      loginErrorMsg.textContent = translations[currentLang].loginNotAdmin;
+      loginErrorMsg.classList.remove("d-none");
+    }
+    return false;
+  }
+
+  currentSession = session;
+  currentUserRole = "admin";
+  applyRoleUI();
+  bootstrap.Modal.getInstance(loginModalEl)?.hide();
+  await fetchProducts();
+  router();
+  return true;
+}
+
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  loginErrorMsg.classList.add("d-none");
+  const email = loginEmailInput.value.trim();
+  const password = loginPasswordInput.value;
+
+  loginSubmitBtn.disabled = true;
+  loginSubmitText.classList.add("d-none");
+  loginSubmitSpinner.classList.remove("d-none");
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+  loginSubmitBtn.disabled = false;
+  loginSubmitText.classList.remove("d-none");
+  loginSubmitSpinner.classList.add("d-none");
+
+  if (error) {
+    loginErrorMsg.textContent = translations[currentLang].loginError + (error.message || "");
+    loginErrorMsg.classList.remove("d-none");
+    return;
+  }
+
+  await tryEnterAdminMode(data.session);
+});
+
+loginModalEl.addEventListener("shown.bs.modal", () => {
+  loginErrorMsg.classList.add("d-none");
+  loginEmailInput.focus();
+});
+loginModalEl.addEventListener("hidden.bs.modal", () => {
+  loginForm.reset();
+  loginErrorMsg.classList.add("d-none");
+});
+
+logoutButton.addEventListener("click", async () => {
+  await supabaseClient.auth.signOut();
+  currentSession = null;
+  currentUserRole = "broker";
+  applyRoleUI();
+  navigateTo("/");
+  await fetchProducts();
+});
+
+async function initAuth() {
+  // เริ่มต้นเป็นโหมดผู้เยี่ยมชม/นายหน้าเสมอ ให้เห็นสินค้าได้ทันทีโดยไม่ต้องรอเช็ค session ก่อน
+  currentUserRole = "broker";
+  applyRoleUI();
+  await fetchProducts();
+  router();
+
+  // ถ้าเคยล็อกอินเป็นแอดมินไว้ก่อนหน้า (session ยังไม่หมดอายุ) ให้สลับเข้าสู่โหมดแอดมินอัตโนมัติแบบเงียบๆ
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session) {
+    await tryEnterAdminMode(session, { silent: true });
+  }
+}
+
 // ------------------- Init -------------------
-fetchProducts();
-router();
+initAuth();
