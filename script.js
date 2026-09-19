@@ -33,7 +33,7 @@ for (let y = MACBOOK_YEAR_END; y >= MACBOOK_YEAR_START; y--) {
 // กลุ่ม "ส่วนประกอบคอมพิวเตอร์" ที่จะถูกยุบรวมเป็นปุ่มเดียวในแถบหมวดหมู่ด่วน (storefront quick-nav)
 // หมายเหตุ: "คอม All In One" และ "คอมชุด" แยกออกมาเป็นหมวดเดี่ยวข้างนอก ไม่รวมอยู่ในกลุ่มนี้ตามที่แจ้ง
 const COMPONENT_CATEGORY_KEYS = [
-  "ram", "ssd", "hdd", "cpu", "motherboard", "gpu", "psu", "case", "monitor",
+  "ram", "ssd", "hdd", "cpu", "motherboard", "gpu", "psu", "cooler", "case_fan", "case", "monitor",
 ];
 
 const CATEGORY_KEYS = [
@@ -67,9 +67,9 @@ const CATEGORY_GROUPS = {
 };
 
 const CATEGORY_LABELS = {
-  th: { ram: "RAM", ssd: "SSD", hdd: "HDD", cpu: "CPU", motherboard: "เมนบอร์ด", gpu: "การ์ดจอ", psu: "เพาเวอร์ซัพพลาย", case: "เคสคอมพิวเตอร์", monitor: "จอมอนิเตอร์", all_in_one: "คอมพิวเตอร์ All In One", comset: "คอมชุด (จัดสเปค)", notebook: "โน้ตบุ๊ก", mouse: "เมาส์", keyboard: "คีย์บอร์ด", mousepad: "แผ่นรองเมาส์", audio: "หูฟัง & ลำโพง", peripheral: "อุปกรณ์ต่อพ่วง", other: "อื่นๆ" },
-  en: { ram: "RAM", ssd: "SSD", hdd: "HDD", cpu: "CPU", motherboard: "Motherboard", gpu: "Graphics Card", psu: "Power Supply", case: "Computer Case", monitor: "Monitor", all_in_one: "All-in-One PC", comset: "PC Bundle Set", notebook: "Notebook", mouse: "Mouse", keyboard: "Keyboard", mousepad: "Mouse Pad", audio: "Headphones & Speakers", peripheral: "Peripherals", other: "Other" },
-  zh: { ram: "RAM", ssd: "SSD", hdd: "HDD", cpu: "CPU", motherboard: "主板", gpu: "显卡", psu: "电源", case: "机箱", monitor: "显示器", all_in_one: "一体机", comset: "组装套装", notebook: "笔记本电脑", mouse: "鼠标", keyboard: "键盘", mousepad: "鼠标垫", audio: "耳机 & 音箱", peripheral: "外围设备", other: "其他" },
+  th: { ram: "RAM", ssd: "SSD", hdd: "HDD", cpu: "CPU", motherboard: "เมนบอร์ด", gpu: "การ์ดจอ", psu: "เพาเวอร์ซัพพลาย", cooler: "ชุดระบายความร้อน", case_fan: "พัดลมเคส", case: "เคสคอมพิวเตอร์", monitor: "จอมอนิเตอร์", all_in_one: "คอมพิวเตอร์ All In One", comset: "คอมชุด (จัดสเปค)", notebook: "โน้ตบุ๊ก", mouse: "เมาส์", keyboard: "คีย์บอร์ด", mousepad: "แผ่นรองเมาส์", audio: "หูฟัง & ลำโพง", peripheral: "อุปกรณ์ต่อพ่วง", other: "อื่นๆ" },
+  en: { ram: "RAM", ssd: "SSD", hdd: "HDD", cpu: "CPU", motherboard: "Motherboard", gpu: "Graphics Card", psu: "Power Supply", cooler: "CPU Cooler", case_fan: "Case Fan", case: "Computer Case", monitor: "Monitor", all_in_one: "All-in-One PC", comset: "PC Bundle Set", notebook: "Notebook", mouse: "Mouse", keyboard: "Keyboard", mousepad: "Mouse Pad", audio: "Headphones & Speakers", peripheral: "Peripherals", other: "Other" },
+  zh: { ram: "RAM", ssd: "SSD", hdd: "HDD", cpu: "CPU", motherboard: "主板", gpu: "显卡", psu: "电源", cooler: "散热器", case_fan: "机箱风扇", case: "机箱", monitor: "显示器", all_in_one: "一体机", comset: "组装套装", notebook: "笔记本电脑", mouse: "鼠标", keyboard: "键盘", mousepad: "鼠标垫", audio: "耳机 & 音箱", peripheral: "外围设备", other: "其他" },
 };
 // ป้ายชื่อรุ่นปีของ MacBook (เหมือนกันทุกภาษา ใช้ตัวเลขปี)
 MACBOOK_YEAR_KEYS.forEach((key) => {
@@ -564,6 +564,7 @@ const QUICK_NAV_GROUP_LABELS = {
 const CATEGORY_ICONS = {
   ram: "bi-memory", ssd: "bi-device-ssd", hdd: "bi-hdd", cpu: "bi-cpu",
   motherboard: "bi-motherboard", gpu: "bi-gpu-card", psu: "bi-plug-fill",
+  cooler: "bi-fan", case_fan: "bi-fan",
   case: "bi-pc-display-horizontal", monitor: "bi-display", all_in_one: "bi-pc-display",
   comset: "bi-boxes", notebook: "bi-laptop",
   mouse: "bi-mouse2-fill", keyboard: "bi-keyboard-fill", mousepad: "bi-square",
