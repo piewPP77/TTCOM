@@ -1638,3 +1638,353 @@ input[type="number"],
     min-height: 40px; /* จำกัดพื้นที่แนวตั้งของแถบ header บนจอเล็กมาก แต่ยังคงเข้าใกล้เกณฑ์แตะสบาย */
   }
 }
+
+/* ============================================================
+   ระบบล็อกอิน (Login) + สิทธิ์ผู้ใช้งาน (Roles: ผู้เยี่ยมชม/นายหน้า vs. แอดมิน)
+   ============================================================ */
+
+/* ป้ายบอกสิทธิ์ผู้ใช้งานที่ล็อกอินอยู่ (แสดงเฉพาะตอนอยู่ในโหมดแอดมิน) ในแถบเมนูบน */
+.user-role-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #fff;
+  background-color: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.28);
+  border-radius: 20px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+.user-role-badge:empty {
+  display: none;
+}
+
+/* โหมดผู้เยี่ยมชม/นายหน้า (ค่าเริ่มต้นของทุกคนที่ยังไม่ได้ล็อกอินเป็นแอดมิน):
+   ซ่อนราคา, สต๊อกคงเหลือ, และปุ่มที่ใช้แก้ไข/เพิ่ม/ดูสรุปสต๊อกสินค้า
+   หมายเหตุด้านความปลอดภัย: การซ่อนนี้เป็นการปรับปรุงประสบการณ์ผู้ใช้ (UI) เท่านั้น
+   การป้องกันจริงต้องอาศัย Row Level Security (RLS) ของ Supabase ที่ตั้งค่าไว้ในฐานข้อมูล
+   ซึ่งจะกันไม่ให้ดึงข้อมูลราคา/สต๊อก หรือแก้ไข/เพิ่ม/ลบสินค้าได้จริง แม้จะเปิด dev tools ก็ตาม */
+body.role-broker .price-badge,
+body.role-broker .detail-price,
+body.role-broker .qty-badge,
+body.role-broker #stockButton,
+body.role-broker #addProductButton,
+body.role-broker #viewEditBtn,
+body.role-broker #viewDeleteBtn {
+  display: none !important;
+}
+
+
+/* ============================================================
+   Mobile UI: Bottom navigation + Categories grid + Account tab
+   (ทั้งหมดใช้เฉพาะจอ < 768px ยกเว้น utility class ท้ายไฟล์)
+   ============================================================ */
+:root {
+  --bottom-nav-h: 64px;
+}
+
+/* โหมดผู้เยี่ยมชม/แอดมิน สำหรับองค์ประกอบในหน้าบัญชี (สลับด้วย class ของ <body> ที่ applyRoleUI() ตั้งให้อยู่แล้ว) */
+body.role-broker .admin-only,
+body.role-admin .guest-only {
+  display: none !important;
+}
+
+@media (max-width: 767.98px) {
+
+  /* กันเนื้อหา/ฟุตเตอร์ถูกแถบเมนูล่างบัง
+     ต้องปล่อยความสูงให้ยืดตามเนื้อหา (เดิม html/body ตั้ง height: 100% ทำให้ padding-bottom ไม่ถูกนับรวมในพื้นที่เลื่อน) */
+  html,
+  body {
+    height: auto;
+    min-height: 100%;
+  }
+  body {
+    padding-bottom: calc(var(--bottom-nav-h) + 1px + env(safe-area-inset-bottom, 0px)); /* +1px = เส้นขอบบนของแถบเมนู */
+  }
+
+  /* Toast ลอยเหนือแถบเมนูล่าง */
+  .toast-container.bottom-0 {
+    bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: 1rem !important;
+  }
+
+  /* ---------- Header: ช่องค้นหา ---------- */
+  .mobile-search {
+    position: relative;
+    flex: 1 1 100%;
+    width: 100%;
+    margin: 0;
+  }
+  .mobile-search > i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6B7A99;
+    font-size: 1rem;
+    pointer-events: none;
+  }
+  .mobile-search input {
+    width: 100%;
+    height: 44px;
+    padding: 0 12px 0 42px;
+    border: 0;
+    border-radius: 22px;
+    background: #fff;
+    color: #1F2D4D;
+    font-size: 16px; /* 16px ป้องกัน iOS ซูมหน้าจอตอนแตะช่องพิมพ์ */
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .mobile-search input::placeholder {
+    color: #6B7A99;
+  }
+  .mobile-search input:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(245, 130, 31, 0.55);
+  }
+
+  /* ---------- ซ่อน/แสดงตามหน้า (body[data-page] ตั้งโดย onMobilePageShown) ---------- */
+  body[data-page="categories"] .category-nav,
+  body[data-page="account"] .category-nav {
+    display: none;
+  }
+  body[data-page="categories"] .site-footer,
+  body[data-page="account"] .site-footer {
+    display: none;
+  }
+  body[data-page="add"] .mobile-search,
+  body[data-page="edit"] .mobile-search {
+    display: none; /* กำลังกรอกฟอร์ม: ไม่ให้พิมพ์ค้นหาแล้วเด้งออกจากหน้าโดยไม่ตั้งใจ */
+  }
+
+  /* ---------- Bottom navigation ---------- */
+  .bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1030; /* เหนือเนื้อหา/แถบหัวเว็บ แต่ต่ำกว่า modal (1055) และเมนูย่อยหมวดหมู่ (2000) */
+    display: flex;
+    background: #fff;
+    border-top: 1px solid #E3EAF5;
+    box-shadow: 0 -6px 18px rgba(10, 54, 157, 0.08);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .bottom-nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+    height: var(--bottom-nav-h);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: #66748F;
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+  }
+  .bottom-nav-label {
+    max-width: 100%;
+    padding: 0 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bottom-nav-icon {
+    width: 56px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 15px;
+    font-size: 1.3rem;
+    transition: background-color .2s var(--ease), color .2s var(--ease), transform .15s var(--ease);
+  }
+  .bottom-nav-item:active .bottom-nav-icon {
+    transform: scale(.92);
+  }
+  /* แท็บที่ใช้งาน: พื้นส้มอ่อนหลังไอคอน + ตัวอักษร/ไอคอนส้มเข้ม (คอนทราสต์ผ่านเกณฑ์อ่านง่ายบนพื้นขาว) */
+  .bottom-nav-item.active {
+    color: #B85304;
+  }
+  .bottom-nav-item.active .bottom-nav-icon {
+    background: #FFE6D2;
+  }
+  .bottom-nav-item:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: -3px;
+    border-radius: 12px;
+  }
+
+  /* ---------- หน้าหมวดหมู่ทั้งหมด: กริด 4 คอลัมน์ ---------- */
+  .category-grid-mobile {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .cat-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    min-width: 0;
+    min-height: 96px;
+    padding: 12px 4px 10px;
+    background: #fff;
+    border: 1px solid #E3EAF5;
+    border-radius: 14px;
+    color: #2B3A5A;
+    font: inherit;
+    text-align: center;
+    cursor: pointer;
+  }
+  .cat-tile:active {
+    transform: scale(.96);
+  }
+  .cat-tile:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+  .cat-tile-icon {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #EAF1FF;
+    color: var(--navy);
+    font-size: 1.35rem;
+  }
+  .cat-tile-label {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    width: 100%;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  /* หมวดที่กำลังกรองอยู่ = สีส้มเดียวกับปุ่มหมวดหมู่ด่วน (quick-nav-pill.active) */
+  .cat-tile.active {
+    background: #FFF6EE;
+    border-color: var(--accent);
+  }
+  .cat-tile.active .cat-tile-icon {
+    background: var(--accent);
+    color: #fff;
+  }
+  .category-grid-empty {
+    padding: 48px 16px;
+  }
+
+  /* ---------- หน้าบัญชี ---------- */
+  .account-card {
+    background: #fff;
+    border: 1px solid #E3EAF5;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .account-hero {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+  }
+  .account-avatar {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--navy);
+    color: #fff;
+    font-size: 1.7rem;
+  }
+  .account-hero-text {
+    min-width: 0;
+  }
+  .account-name {
+    color: var(--navy);
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  .account-sub {
+    color: #66748F;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  .account-group-title {
+    margin: 20px 4px 8px;
+    color: #66748F;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .account-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    padding: 12px 16px;
+    background: none;
+    border: 0;
+    color: #2B3A5A;
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+  }
+  .account-row + .account-row {
+    border-top: 1px solid #EEF2F8;
+  }
+  a.account-row:active,
+  button.account-row:active {
+    background: #F3F6FC;
+  }
+  .account-row > i:first-child {
+    width: 22px;
+    color: var(--navy);
+    font-size: 1.15rem;
+    text-align: center;
+  }
+  .account-row-label {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .account-chevron {
+    color: #9AA6BF;
+  }
+  .account-lang {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+  }
+  .account-lang-btn {
+    min-height: 44px;
+    padding: 0 6px;
+    background: #F3F6FC;
+    border: 0;
+    border-radius: 12px;
+    color: #2B3A5A;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .account-lang-btn.active {
+    background: var(--navy);
+    color: #fff;
+  }
+}
